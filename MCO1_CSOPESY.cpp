@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <ctime>
 #include <atomic>
+#include <algorithm>
 
 using namespace std;
 
@@ -23,6 +24,10 @@ map<string, unique_ptr<Process>> procList;
 mutex processLock;
 int next_pid = 1;
 
+int g_minIns = 50;
+int g_maxIns = 200;
+bool g_configLoaded = false;
+
 // trim helper
 static inline void trim(string &s) {
     auto l = s.find_first_not_of(" \t\r\n");
@@ -31,11 +36,71 @@ static inline void trim(string &s) {
     s = s.substr(l, r - l + 1);
 }
 
+// Read config.txt (space-separated key value per line).
+// Returns the min/max instruction range to use. If parsing fails, returns defaults 50/200.
 pair<int,int> readConfigRange() {
-    ifstream f("config.txt");
-    int a = 50, b = 200;
-    if (f >> a >> b) return make_pair(a,b);
-    return make_pair(50,200);
+
+    if (g_configLoaded) {
+        return make_pair(g_minIns, g_maxIns);
+    }
+
+    ifstream file("config.txt");
+    int minv = 50, maxv = 200;
+    if (!file) {
+        // no file; keep defaults
+        g_minIns = minv; g_maxIns = maxv; g_configLoaded = false;
+        return make_pair(minv, maxv);
+    }
+
+    string line;
+    while (getline(file, line)) {
+        trim(line);
+        if (line.empty()) continue;
+        if (line[0] == '#') continue; // allow comments
+
+        istringstream iss(line);
+        string key;
+        if (!(iss >> key)) continue;
+
+        string value;
+        // value may be quoted (e.g., "rr") or a simple token
+        if (!(iss >> value)) continue;
+        // if value starts with '"', gather until closing quote
+        if (!value.empty() && value.front() == '"') {
+            if (value.back() != '"') {
+                string rest;
+                while (iss >> rest) {
+                    value += " ";
+                    value += rest;
+                    if (!rest.empty() && rest.back() == '"') break;
+                }
+            }
+            // strip surrounding quotes
+            if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+                value = value.substr(1, value.size()-2);
+        }
+
+        // normalize key (remove trailing ':' if present, make lowercase)
+        if (!key.empty() && key.back() == ':') key.pop_back();
+        transform(key.begin(), key.end(), key.begin(), ::tolower);
+
+        // accept several possible key spellings for compatibility
+        if (key == "min-ins" || key == "min_ins" || key == "minins" || key == "min-ins") {
+            try { minv = stoi(value); } catch(...) { }
+        } else if (key == "max-ins" || key == "max_ins" || key == "maxins" || key == "max-ins") {
+            try { maxv = stoi(value); } catch(...) { }
+        } else {
+            // ignore other keys for now
+        }
+    }
+
+    // enforce sensible bounds (min >= 1, max >= min)
+    if (minv < 1) minv = 1;
+    if (maxv < 1) maxv = 1;
+    if (maxv < minv) swap(minv, maxv);
+
+    g_minIns = minv; g_maxIns = maxv; g_configLoaded = true;
+    return make_pair(minv, maxv);
 }
 
 void clearScreen() {
@@ -238,10 +303,11 @@ void attachToProcess(const string &rawName) {
 
 int main() {
     bool initialized = false;
+    printHeader();
     
     string line;
     while (true) {
-        printHeader();
+        
         cout << "root:\\> ";
         if (!getline(cin, line)) break;
         trim(line);
@@ -263,8 +329,16 @@ int main() {
 
         if (!initialized) {
             if (line == "initialize") {
+                // attempt to read config.txt and load min/max instruction range
+                auto pr = readConfigRange();
                 initialized = true;
-                cout << "Processor configuration initialized." << endl;
+
+                if (g_configLoaded) {
+                    cout << "Processor configuration loaded from config.txt." << endl;
+                } else {
+                    cout << "No config.txt found or failed to parse — using defaults." << endl;
+                }
+                
             } else {
                 cout << "Error: 'initialize' must be called before other commands. Type 'exit' to quit." << endl;
             }
