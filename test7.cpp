@@ -209,8 +209,8 @@ class Process {
     }
 
     void execInstruction(const Instruction &ins) {
-        // If delay-per-exec > 0, convert CPU-cycle delay to milliseconds.
-        // We interpret 1 CPU cycle -> 1 millisecond for simulation purposes.
+        // if delay-per-exec > 0, convert CPU-cycle delay to milliseconds.
+        // interpret 1 CPU cycle -> 1 millisecond for simulation purposes.
         if (g_delayPerExec > 0) {
             this_thread::sleep_for(chrono::milliseconds(static_cast<int>(g_delayPerExec)));
         }
@@ -406,9 +406,9 @@ void handleReportUtil() {
 void cmdScreenList() {
     lock_guard<mutex> lock(processLock);
     
-    // temporarily hardcoded
+    // expected values when there are no processes
     if (procList.empty()) {
-    	cout << "CPU utilization: 0%";
+    	cout << "CPU utilization: 0%\n";
 	    cout << "Cores used: 0\n";
 	    cout << "Cores available: " << g_numCPU << "\n";
 	    cout << "------------------------------------\n";
@@ -422,7 +422,9 @@ void cmdScreenList() {
         if (kv.second->isFinished())
             finished++;
 
-    int usedCores = min(total, g_numCPU);
+	int running = total - finished; // compute number of running processes
+    // int usedCores = min(total, g_numCPU);
+    int usedCores = min(running, g_numCPU); // for testing
     int available = max(0, g_numCPU - usedCores);
     
     // fix cpu utilization
@@ -486,6 +488,7 @@ void attachToProcess(const string &rawName) {
         // if the process is already finished, this is base on the mc01 specs
         if (p->isFinished()) {
         	cout << "Process "<< p->getName() << " not found.\n";
+        	cout << "------------------------------------\n";
         	return;
 		}
     }
