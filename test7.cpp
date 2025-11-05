@@ -1,3 +1,14 @@
+/*
+	To do:
+		1. fix process-smi core
+		2. add report-util
+		3. do some minor fixes
+		4. fix cpu utilization (100% when fully used, 0% if not used, etc..)
+		5. make screen unaccesible when it is finished
+		6. not sure if auto quit screen if process is already finished
+		7. when everything else is okay, try to make classes in the different files for better readability
+*/
+
 // main.cpp
 #include <iostream>
 #include <string>
@@ -358,7 +369,7 @@ void handleSchedulerStart() {
         const uint64_t cycle_ms = 100;
 
         while (g_schedulerRunning) {
-            string name = "proc_" + to_string(counter++);
+            string name = "proc-" + to_string(counter++);
             uniform_int_distribution<int> dist(g_minIns, g_maxIns);
             int lines = dist(gen);
 
@@ -385,6 +396,7 @@ void handleSchedulerStop() {
     cout << "Scheduler stopped.\n";
 }
 
+// like screen -ls, but report-util saves this into a text file – “csopesylog.txt.” 
 void handleReportUtil() {
     lock_guard<mutex> lock(processLock);
     cout << "=== CPU UTILIZATION REPORT ===\n";
@@ -578,4 +590,4 @@ int main() {
     }
 
     return 0;
-} // need process-smi core fix, + add report-util + minor fixes then done
+}
