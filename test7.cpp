@@ -4,7 +4,6 @@
 		2. add report-util
 		3. do some minor fixes
 		4. fix cpu utilization (100% when fully used, 0% if not used, etc..)
-		5. make screen unaccesible when it is finished
 		6. not sure if auto quit screen if process is already finished
 		7. when everything else is okay, try to make classes in the different files for better readability
 */
@@ -31,12 +30,12 @@ using namespace std;
 // forward declaration
 class Process;
 
-// Globals
+// globals
 map<string, unique_ptr<Process>> procList;
 mutex processLock;
 int next_pid = 1;
 
-// Config Globals (defaults)
+// default values if config.txt does not exist
 int g_numCPU = 4;
 string g_schedulerType = "rr"; // forced to "rr"
 int g_quantumCycles = 5;
@@ -54,9 +53,7 @@ static inline void trim(string &s) {
     s = s.substr(l, r - l + 1);
 }
 
-// ---------------------------------------------------------------
-// CONFIGURATION READER (keeps structure, forces scheduler="rr")
-// ---------------------------------------------------------------
+// config.txt reader
 void readConfig() {
     if (g_configLoaded) return;
 
@@ -68,7 +65,7 @@ void readConfig() {
         g_configLoaded = true;
         cout << "Configuration (defaults):\n";
         cout << "  num-cpu = " << g_numCPU << "\n";
-        cout << "  scheduler = " << g_schedulerType << " (forced)\n";
+        cout << "  scheduler = " << g_schedulerType << " \n";
         cout << "  quantum-cycles = " << g_quantumCycles << "\n";
         cout << "  batch-process-freq = " << g_batchFreq << "\n";
         cout << "  min-ins = " << g_minIns << "\n";
@@ -141,7 +138,7 @@ void readConfig() {
     // enforce scheduler to rr regardless of file
     g_schedulerType = "rr";
 
-    // Print loaded configuration
+    // print loaded configuration from config.txt
     cout << "Configuration loaded:\n";
     cout << "  num-cpu = " << g_numCPU << "\n";
     cout << "  scheduler = " << g_schedulerType << " (forced)\n";
@@ -166,13 +163,12 @@ void clearScreen() {
 void printHeader() {
     cout << "------------------------------------\n";
     cout << "Welcome to CSOPESY Emulator!\n\n";
+    // insert our names here after everything is working
     cout << "Last updated: " << __DATE__ << "\n";
-    cout << "------------------------------------\n\n";
+    cout << "------------------------------------\n";
 }
 
-// ---------------------------------------------------------------------
 // INSTRUCTION SYSTEM
-// ---------------------------------------------------------------------
 enum class InstrType { PRINT, DECLARE, ADD, SUBTRACT, SLEEP, FOR };
 
 struct Instruction {
@@ -182,9 +178,7 @@ struct Instruction {
     int repeatCount = 0;
 };
 
-// ---------------------------------------------------------------------
 // Process Class
-// ---------------------------------------------------------------------
 class Process {
     string name;
     int id;
@@ -195,7 +189,7 @@ class Process {
     mutex logLock;
     vector<Instruction> instructions;
 
-    // Tracking
+    // variables for tracking
     int coreAssigned;               // simulated core id (for display)
     atomic<int> currentInstrIndex;  // 1-based current instruction index
     int totalLines;
@@ -209,8 +203,7 @@ class Process {
         tm local_tm = *localtime(&now);
         char buf[64];
         strftime(buf, sizeof(buf), "(%m/%d/%Y %I:%M:%S%p)", &local_tm);
-        // Example format:
-        // (08/06/2024 09:15:22AM) Core:0 "Hello world..."
+        // sample format: (08/06/2024 09:15:22AM) Core:0 "Hello world..."
         string entry = string(buf) + " Core:" + to_string(coreAssigned) + " \"" + msg + "\"";
         logs.push_back(entry);
     }
@@ -350,10 +343,7 @@ public:
     int getTotalLines() const { return totalLines; }
 };
 
-// ---------------------------------------------------------------------
 // Command Handlers
-// ---------------------------------------------------------------------
-
 void handleSchedulerStart() {
     if (g_schedulerRunning) {
         cout << "Scheduler already running.\n";
@@ -361,6 +351,7 @@ void handleSchedulerStart() {
     }
     g_schedulerRunning = true;
     cout << "Starting scheduler (" << g_schedulerType << ")...\n";
+    cout << "------------------------------------\n";
 
     thread([]() {
         random_device rd; mt19937 gen(rd());
@@ -379,7 +370,7 @@ void handleSchedulerStart() {
                 procList[name]->start();
             }
 
-            // Sleep according to batch-process-freq
+            // sleep according to batch-process-freq
             uint64_t sleep_ms = g_batchFreq * cycle_ms;
             if (sleep_ms == 0) sleep_ms = cycle_ms;
             this_thread::sleep_for(chrono::milliseconds(static_cast<int>(sleep_ms)));
@@ -394,9 +385,10 @@ void handleSchedulerStop() {
     }
     g_schedulerRunning = false;
     cout << "Scheduler stopped.\n";
+    cout << "------------------------------------\n";
 }
 
-// like screen -ls, but report-util saves this into a text file – “csopesylog.txt.” 
+// like screen -ls, but report-util saves this into a text file â€“ â€œcsopesylog.txt.â€ 
 void handleReportUtil() {
     lock_guard<mutex> lock(processLock);
     cout << "=== CPU UTILIZATION REPORT ===\n";
@@ -413,7 +405,13 @@ void handleReportUtil() {
 
 void cmdScreenList() {
     lock_guard<mutex> lock(processLock);
+    
+    // temporarily hardcoded
     if (procList.empty()) {
+    	cout << "CPU utilization: 0%";
+	    cout << "Cores used: 0\n";
+	    cout << "Cores available: " << g_numCPU << "\n";
+	    cout << "------------------------------------\n";
         cout << "(no processes)\n";
         return;
     }
@@ -426,6 +424,8 @@ void cmdScreenList() {
 
     int usedCores = min(total, g_numCPU);
     int available = max(0, g_numCPU - usedCores);
+    
+    // fix cpu utilization
 
     cout << "CPU utilization: " << fixed << setprecision(1)
          << (100.0 * usedCores / g_numCPU) << "%\n";
@@ -465,6 +465,7 @@ void cmdScreenList() {
                  << "   Finished   " << totalIns << " / " << totalIns << "\n";
         }
     }
+    cout << "------------------------------------\n";
 }
 
 // Attach + process-smi
@@ -472,6 +473,7 @@ void attachToProcess(const string &rawName) {
     string name = rawName;
     trim(name);
     Process *p = nullptr;
+    
     {
         lock_guard<mutex> lock(processLock);
         auto it = procList.find(name);
@@ -480,6 +482,12 @@ void attachToProcess(const string &rawName) {
             return;
         }
         p = it->second.get();
+        
+        // if the process is already finished, this is base on the mc01 specs
+        if (p->isFinished()) {
+        	cout << "Process "<< p->getName() << " not found.\n";
+        	return;
+		}
     }
 
     clearScreen();
@@ -490,17 +498,18 @@ void attachToProcess(const string &rawName) {
         cout << "proc> ";
         if (!getline(cin, cmd)) break;
         trim(cmd);
+        
         if (cmd == "exit") break;
+        
         if (cmd == "process-smi") {
-            // Display structured output per your Option B
             cout << "\nProcess name: " << p->getName() << "\n";
             cout << "ID: " << p->getId() << "\n";
             cout << "Logs:\n";
             auto logs = p->snapshotLogs();
             for (auto &line : logs) cout << line << "\n";
-            if (p->isFinished()) cout << "(process finished)\n";
             cout << "\nCurrent instruction line: " << p->getCurrentInstructionLine() << "\n";
             cout << "Lines of code: " << p->getTotalLines() << "\n\n";
+            if (p->isFinished()) cout << "(process finished)\n";
         } else cout << "Unknown command.\n";
     }
 }
@@ -532,9 +541,7 @@ void handleScreenSpawn(const string &rawName) {
     attachToProcess(name);
 }
 
-// ---------------------------------------------------------------------
-// MAIN LOOP
-// ---------------------------------------------------------------------
+// main loop
 int main() {
     bool initialized = false;
     printHeader();
@@ -569,7 +576,7 @@ int main() {
 
         if (line == "scheduler-start") { handleSchedulerStart(); continue; }
         if (line == "scheduler-stop")  { handleSchedulerStop(); continue; }
-        if (line == "report-util")     { handleReportUtil(); continue; }
+        if (line == "report-util")     { handleReportUtil(); continue; } // this needs fixing, same as screen -ls but this logs into a text file
         if (line == "screen -ls")      { cmdScreenList(); continue; }
 
         if (line.rfind("screen -r", 0) == 0) {
