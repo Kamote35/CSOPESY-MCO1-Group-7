@@ -1,12 +1,3 @@
-/*
-	To do:
-		1. fix process-smi core
-		3. do some minor fixes
-		6. not sure if auto quit screen if process is already finished
-		7. when everything else is okay, try to make classes in the different files for better readability
-		remove some self comments after testing
-*/
-
 // main.cpp
 #include <iostream>
 #include <string>
@@ -160,10 +151,14 @@ void clearScreen() {
 #endif
 }
 
-// insert our names here after everything is working
 void printHeader() {
     cout << "------------------------------------\n";
     cout << "Welcome to CSOPESY Emulator!\n\n";
+	cout << "Developers:" << endl;
+    cout << "Corpuz, Gerald Justine\n";
+	cout << "De Jesus, Andrei Zarmin\n";
+	cout << "Manaois, Chriscel John\n";
+	cout << "Sayat, John Christian\n";
     cout << "Last updated: " << __DATE__ << "\n";
     cout << "------------------------------------\n";
 }
@@ -669,4 +664,5 @@ int main() {
     }
 
     return 0;
+
 }
