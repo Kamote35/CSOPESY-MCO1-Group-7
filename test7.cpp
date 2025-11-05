@@ -135,7 +135,7 @@ void readConfig() {
     if (g_numCPU < 1) g_numCPU = 1;
     if (g_numCPU > 128) g_numCPU = 128;
 
-    // enforce scheduler to rr regardless of file
+    // enforce scheduler to rr (test case)
     g_schedulerType = "rr";
 
     // print loaded configuration from config.txt
@@ -468,7 +468,7 @@ void cmdScreenList() {
     cout << "------------------------------------\n";
 }
 
-// Attach + process-smi
+// attach + process-smi
 void attachToProcess(const string &rawName) {
     string name = rawName;
     trim(name);
@@ -491,7 +491,7 @@ void attachToProcess(const string &rawName) {
     }
 
     clearScreen();
-    cout << "Attached to process: " << name << "\nType 'process-smi' to view logs, 'exit' to leave.\n";
+    cout << "Attached to process: " << name << "\nType 'process-smi' to view logs, 'exit' to leave.\n"; // remove this after everything is working fine
 
     string cmd;
     while (true) {
