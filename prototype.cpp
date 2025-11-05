@@ -490,8 +490,6 @@ void cmdScreenList() {
     // int usedCores = min(total, g_numCPU);
     int usedCores = min(running, g_numCPU); // for testing
     int available = max(0, g_numCPU - usedCores);
-    
-    // fix cpu utilization
 
     cout << "CPU utilization: " << fixed << setprecision(1)
          << (100.0 * usedCores / g_numCPU) << "%\n";
@@ -549,7 +547,7 @@ void attachToProcess(const string &rawName) {
         }
         p = it->second.get();
         
-        // if the process is already finished, this is base on the mc01 specs
+        // if the process is already finished, this is based on the mc01 specs
         if (p->isFinished()) {
         	cout << "Process "<< p->getName() << " not found.\n";
         	cout << "------------------------------------\n";
@@ -558,7 +556,7 @@ void attachToProcess(const string &rawName) {
     }
 
     clearScreen();
-    cout << "Attached to process: " << name << "\nType 'process-smi' to view logs, 'exit' to leave.\n"; // remove this after everything is working fine
+    cout << "Attached to process: " << name << "\nOptions: 'process-smi' to view logs, 'exit' to leave.\n"; // remove this after everything is working fine
 
     string cmd;
     while (true) {
@@ -643,7 +641,7 @@ int main() {
 
         if (line == "scheduler-start") { handleSchedulerStart(); continue; }
         if (line == "scheduler-stop")  { handleSchedulerStop(); continue; }
-        if (line == "report-util")     { handleReportUtil(); continue; } // this needs fixing, same as screen -ls but this logs into a text file
+        if (line == "report-util")     { handleReportUtil(); continue; }
         if (line == "screen -ls")      { cmdScreenList(); continue; }
 
         if (line.rfind("screen -r", 0) == 0) {
@@ -666,3 +664,4 @@ int main() {
     return 0;
 
 }
+
